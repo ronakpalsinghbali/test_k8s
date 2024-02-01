@@ -14,6 +14,9 @@ jobs:
       run: |
         mkdir ${HOME}/.kube
         echo ${{ secrets.KUBE_CONFIG_DATA }} | base64 --decode > ${HOME}/.kube/config
+    
+    - name: Use context
+      run: kubectl config use-context kubernetes-admin@kubernetes
 
     - name: Deploy to K8s
       run: kubectl apply -f full-php-app.yaml
