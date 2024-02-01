@@ -1,0 +1,425 @@
+#-----------------Namespace-----------
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ronak
+  labels:
+    app.kubernetes.io/name: wordpress 
+    app.kubernetes.io/instance: wordpress-abcxzy
+    pp.kubernetes.io/version: "4.9.4" 
+    app.kubernetes.io/managed-by: manifest 
+    app.kubernetes.io/contact: Ronak 
+    app.kubernetes.io/workload: cloudeq-website 
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/tier: backend
+    app.kubernetes.io/project: kubernetes
+---
+# ----------------Storage-class----------------
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+  labels:
+    app: mysql-label
+    app.kubernetes.io/name: wordpress 
+    app.kubernetes.io/instance: wordpress-abcxzy
+    pp.kubernetes.io/version: "4.9.4" 
+    app.kubernetes.io/managed-by: manifest 
+    app.kubernetes.io/contact: Ronak 
+    app.kubernetes.io/workload: cloudeq-website 
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/tier: backend
+    app.kubernetes.io/project: kubernetes
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+---
+# -------------------Persistent-Volume------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv
+  labels:
+    app: mysql-label
+    app.kubernetes.io/name: wordpress 
+    app.kubernetes.io/instance: wordpress-abcxzy
+    pp.kubernetes.io/version: "4.9.4" 
+    app.kubernetes.io/managed-by: manifest 
+    app.kubernetes.io/contact: Ronak 
+    app.kubernetes.io/workload: cloudeq-website 
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/tier: backend
+    app.kubernetes.io/project: kubernetes
+spec:
+  capacity:
+    storage: 2Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  hostPath:
+   path: /mysql-vol
+---
+# -----------------------Persistent-Volume-Claim-------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim
+  labels:
+    app: mysql-label
+    app.kubernetes.io/name: wordpress 
+    app.kubernetes.io/instance: wordpress-abcxzy
+    pp.kubernetes.io/version: "4.9.4" 
+    app.kubernetes.io/managed-by: manifest 
+    app.kubernetes.io/contact: Ronak 
+    app.kubernetes.io/workload: cloudeq-website 
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/tier: backend
+    app.kubernetes.io/project: kubernetes
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: local-storage
+  selector:
+    matchLabels:
+      app: "mysql-label"
+---
+# ----------------Secret------------
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysqldb-secret
+  namespace: ronak
+  labels:
+    app: mysql-label
+    app.kubernetes.io/name: wordpress 
+    app.kubernetes.io/instance: wordpress-abcxzy
+    pp.kubernetes.io/version: "4.9.4" 
+    app.kubernetes.io/managed-by: manifest 
+    app.kubernetes.io/contact: Ronak 
+    app.kubernetes.io/workload: cloudeq-website 
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/tier: backend
+    app.kubernetes.io/project: kubernetes
+type: Opaque
+data:
+  mysqldb-root-username: cm9vdA== #root
+  mysqldb-root-password: YWRtaW4= #admin
+---
+# -------------------Config-Map----------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-scripts
+  namespace: ronak
+  labels:
+    app: mysql-label
+    app.kubernetes.io/name: wordpress 
+    app.kubernetes.io/instance: wordpress-abcxzy
+    pp.kubernetes.io/version: "4.9.4" 
+    app.kubernetes.io/managed-by: manifest 
+    app.kubernetes.io/contact: Ronak 
+    app.kubernetes.io/workload: cloudeq-website 
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/tier: backend
+    app.kubernetes.io/project: kubernetes
+data:
+  schema.sql: |
+    SELECT 'Start of initialization script';
+    SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+    SET time_zone = "+00:00";
+
+    CREATE DATABASE `my_note`;
+    USE `my_note`;
+
+    CREATE TABLE `notes` (
+    `user_id` int(11) UNSIGNED NOT NULL,
+    `title` varchar(40) NOT NULL,
+    `body` text CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+    `date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+    CREATE TABLE `users` (
+    `user_id` int(11) UNSIGNED NOT NULL,
+    `username` varchar(60) NOT NULL,
+    `password` varchar(255) NOT NULL,
+    `email` varchar(60) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+    ALTER TABLE `users`
+    ADD PRIMARY KEY (`user_id`),
+    ADD UNIQUE KEY `username` (`username`);
+
+    ALTER TABLE `users`
+    MODIFY `user_id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+    SELECT 'End of initialization script';
+---
+# ------------------------Mysql-DB-Deployment-------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-deployment
+  namespace: ronak
+  labels:
+    app: mysql-label
+    app.kubernetes.io/name: wordpress 
+    app.kubernetes.io/instance: wordpress-abcxzy
+    pp.kubernetes.io/version: "4.9.4" 
+    app.kubernetes.io/managed-by: manifest 
+    app.kubernetes.io/contact: Ronak 
+    app.kubernetes.io/workload: cloudeq-website 
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/tier: backend
+    app.kubernetes.io/project: kubernetes
+  
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-label
+  template:
+    metadata:
+      labels:
+        app: mysql-label
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:latest
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysqldb-secret
+                  key: mysqldb-root-password
+          volumeMounts:
+            - name: mysql-vol
+              mountPath: /var/lib/mysql
+            - name: mysql-init-scripts
+              mountPath: /docker-entrypoint-initdb.d/
+          readinessProbe:
+            exec:
+              command:
+                - cat
+                - /var/lib/mysql/my_note/users.ibd
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 3306
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: mysql-vol
+          persistentVolumeClaim:
+            claimName: mysql-pv-claim
+
+        - name: mysql-init-scripts
+          configMap:
+            name: mysql-init-scripts
+            defaultMode: 0755
+---
+# ----------------------Mysql-DB-Service------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+  namespace: ronak
+  labels:
+    app: mysql-label
+    app.kubernetes.io/name: wordpress 
+    app.kubernetes.io/instance: wordpress-abcxzy
+    pp.kubernetes.io/version: "4.9.4" 
+    app.kubernetes.io/managed-by: manifest 
+    app.kubernetes.io/contact: Ronak 
+    app.kubernetes.io/workload: cloudeq-website 
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/tier: backend
+    app.kubernetes.io/project: kubernetes
+spec:
+  selector:
+    app: mysql-label
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+---
+# -------------------PHP-App-Deployment------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php-app-deployment
+  namespace: ronak
+  labels:
+    task: php-app
+    app.kubernetes.io/name: wordpress 
+    app.kubernetes.io/instance: wordpress-abcxzy
+    pp.kubernetes.io/version: "4.9.4" 
+    app.kubernetes.io/managed-by: manifest 
+    app.kubernetes.io/contact: Ronak 
+    app.kubernetes.io/workload: cloudeq-website 
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/tier: frontend
+    app.kubernetes.io/project: kubernetes
+  
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      task: php-app
+  template:
+    metadata:
+      labels:
+        task: php-app
+    spec:
+      containers:
+        - name: php
+          image: palronaq/my-note-php-app:v1
+          ports:
+            - containerPort: 8082
+          env:
+            - name: DB_HOST
+              value: mysql-service
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mysqldb-secret
+                  key: mysqldb-root-username
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: mysqldb-secret
+                  key: mysqldb-root-password
+            - name: DB_DATABASE
+              value: my_note
+          readinessProbe:
+            exec:
+              command:
+                - cat
+                - /var/www/html/register.php
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /register.php
+              port: 8082
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+          
+---
+# --------------------PHP-App-Service--------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: php-app-service
+  namespace: ronak
+  labels:
+    task: php-app
+    app.kubernetes.io/name: wordpress 
+    app.kubernetes.io/instance: wordpress-abcxzy
+    pp.kubernetes.io/version: "4.9.4" 
+    app.kubernetes.io/managed-by: manifest 
+    app.kubernetes.io/contact: Ronak 
+    app.kubernetes.io/workload: cloudeq-website 
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/tier: frontend
+    app.kubernetes.io/project: kubernetes
+spec:
+  selector:
+    task: php-app
+  type: NodePort
+  ports:
+  - protocol: TCP
+    port: 8002
+    targetPort: 8082
+    nodePort: 30100
+
+--- 
+# ---------------PhPAdmin-Deployment--------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phpmyadmin-deployment
+  namespace: ronak
+  labels:
+    app: phpmyadmin-label
+    app.kubernetes.io/name: wordpress 
+    app.kubernetes.io/instance: wordpress-abcxzy
+    pp.kubernetes.io/version: "4.9.4" 
+    app.kubernetes.io/managed-by: manifest 
+    app.kubernetes.io/contact: Ronak 
+    app.kubernetes.io/workload: cloudeq-website 
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/tier: backend
+    app.kubernetes.io/project: kubernetes
+  
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: phpmyadmin-label
+  template:
+    metadata:
+      labels:
+        app: phpmyadmin-label
+    spec:
+      containers:
+        - name: phpmyadmin
+          image: phpmyadmin/phpmyadmin:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: PMA_HOST
+              value: mysql-service
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysqldb-secret
+                  key: mysqldb-root-password
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+---
+# -----------------PhPAdmin-Service------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: phpmyadmin-service
+  namespace: ronak
+  labels:
+    app: phpmyadmin-label
+    app.kubernetes.io/name: wordpress 
+    app.kubernetes.io/instance: wordpress-abcxzy
+    pp.kubernetes.io/version: "4.9.4" 
+    app.kubernetes.io/managed-by: manifest 
+    app.kubernetes.io/contact: Ronak 
+    app.kubernetes.io/workload: cloudeq-website 
+    app.kubernetes.io/env: dev
+    app.kubernetes.io/tier: backend
+    app.kubernetes.io/project: kubernetes
+spec:
+  selector:
+    app: phpmyadmin-label
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+      nodePort: 30200
