@@ -14,6 +14,7 @@ jobs:
       run: |
         mkdir ${HOME}/.kube
         echo ${{ secrets.KUBE_CONFIG_DATA }} | base64 --decode > ${HOME}/.kube/config
+        sudo chown $(id -u):$(id -g) $HOME/.kube/config
     
     - name: Use context
       run: kubectl config use-context kubernetes-admin@kubernetes
